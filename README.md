@@ -1,5 +1,13 @@
 # Basketball Scorebook for WordPress
 
+## 🎤 音声入力アプリを開く
+
+**[▶ Basketball Scorebook Voice をブラウザで開く](https://hakunou22hr.github.io/basketball-scorebook-voice/)**
+
+GitHub Pages のトップURLから、音声入力対応スコアブック本体へ直接移動します。
+
+---
+
 [🇯🇵 日本語のドキュメント (Japanese Docs)](./README.ja.md)
 
 [![WordPress Plugin](https://img.shields.io/wordpress/v/basketball-scorebook.svg)](https://wordpress.org/plugins/basketball-scorebook/)
