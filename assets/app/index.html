@@ -119,8 +119,36 @@
         .bsb-btn--help .bsb-btn-icon {
             background: linear-gradient(135deg, #8b5cf6, #a78bfa);
         }
+        .bsb-btn--voice .bsb-btn-icon {
+            background: linear-gradient(135deg, #db2777, #f43f5e);
+        }
+        .bsb-btn--voice.is-listening {
+            background: #881337;
+            border-color: #fda4af;
+        }
         .bsb-btn-label {
             letter-spacing: 0.02em;
+        }
+
+        .voice-result {
+            width: 100%;
+            margin-top: 0.5rem;
+            padding: 0.625rem 0.75rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.5rem;
+            background: #f8fafc;
+            color: #334155;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+        .voice-result__text {
+            min-height: 1.5rem;
+            overflow-wrap: anywhere;
+        }
+        .voice-result__status {
+            margin-top: 0.25rem;
+            color: #be123c;
+            font-size: 0.75rem;
         }
 
         /* 見出しロゴ風タイトル */
@@ -284,7 +312,7 @@
             
             <!-- Controls (Reset / Share / Print) -->
             <div class="no-print flex justify-end mb-4 items-center border-b pb-2">
-                <div class="flex gap-2 flex-wrap justify-end">
+                <div class="flex gap-2 flex-wrap justify-end w-full">
                     <!-- JSON Import 用の隠しファイル入力 -->
                     <input
                         type="file"
@@ -296,6 +324,18 @@
 
                     <!-- Export / Import / Reset / Print / Help ボタン -->
                         <div class="bsb-toolbar">
+                        <button
+                            type="button"
+                            @click="toggleVoiceInput()"
+                            class="bsb-btn bsb-btn--voice"
+                            :class="voiceListening ? 'is-listening' : ''"
+                            :aria-pressed="voiceListening"
+                            :title="voiceListening ? '音声入力を停止する' : '日本語の音声入力を開始する'"
+                        >
+                            <span class="bsb-btn-icon">🎤</span>
+                            <span class="bsb-btn-label" x-text="voiceListening ? '停止' : '音声入力'"></span>
+                        </button>
+
                             <button 
                             @click="clearData()"
                             class="bsb-btn bsb-btn--reset"
@@ -338,6 +378,10 @@
                             <span class="bsb-btn-icon">❓</span>
                             <span class="bsb-btn-label">使い方</span>
                         </button>
+                    </div>
+                    <div class="voice-result" x-show="voiceTranscript || voiceStatus" aria-live="polite" aria-atomic="true">
+                        <div class="voice-result__text" x-text="voiceTranscript"></div>
+                        <div class="voice-result__status" x-show="voiceStatus" x-text="voiceStatus"></div>
                     </div>
                 </div>
             </div>
@@ -1054,6 +1098,11 @@
             return {
                 // ★追加：再描画トリガー
                 refreshKey: 0,
+                // 音声認識結果は表示専用。スコアデータには接続・保存しない。
+                voiceRecognition: null,
+                voiceListening: false,
+                voiceTranscript: '',
+                voiceStatus: '',
                 // ===== v1.0.3: v2.0.0移行準備（保存データの箱） =====
                 foulEvents: [],
                 meta: {
@@ -1446,6 +1495,61 @@
                     if (this.isResetting) return;
                     _store.save(this.buildClassicViewModel());
                 },
+
+                toggleVoiceInput() {
+                    if (this.voiceListening && this.voiceRecognition) {
+                        this.voiceRecognition.stop();
+                        return;
+                    }
+
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    if (!SpeechRecognition) {
+                        this.voiceStatus = 'このブラウザは音声認識に対応していません。';
+                        return;
+                    }
+
+                    const recognition = new SpeechRecognition();
+                    recognition.lang = 'ja-JP';
+                    recognition.interimResults = true;
+                    recognition.continuous = true;
+
+                    recognition.onstart = () => {
+                        this.voiceListening = true;
+                        this.voiceStatus = '日本語の音声を認識しています…';
+                    };
+                    recognition.onresult = (event) => {
+                        let transcript = '';
+                        for (let i = 0; i < event.results.length; i++) {
+                            transcript += event.results[i][0].transcript;
+                        }
+                        this.voiceTranscript = transcript.trim();
+                    };
+                    recognition.onerror = (event) => {
+                        const messages = {
+                            'audio-capture': 'マイクを利用できません。接続を確認してください。',
+                            'not-allowed': 'マイクの使用が許可されていません。ブラウザの設定を確認してください。',
+                            'no-speech': '音声を認識できませんでした。もう一度お試しください。'
+                        };
+                        this.voiceStatus = messages[event.error] || '音声認識中にエラーが発生しました。';
+                    };
+                    recognition.onend = () => {
+                        this.voiceListening = false;
+                        this.voiceRecognition = null;
+                        if (this.voiceStatus === '日本語の音声を認識しています…') {
+                            this.voiceStatus = this.voiceTranscript ? '音声入力を終了しました。' : '';
+                        }
+                    };
+
+                    this.voiceRecognition = recognition;
+                    this.voiceTranscript = '';
+                    this.voiceStatus = '';
+                    try {
+                        recognition.start();
+                    } catch (error) {
+                        this.voiceRecognition = null;
+                        this.voiceStatus = '音声入力を開始できませんでした。';
+                    }
+                },
             
                 clearData() {
                     if(confirm('入力データを全て消去してリセットしますか？\nこの操作は取り消せません。')) {
@@ -1622,5 +1726,4 @@
     </script>
 </body>
 </html>
-
 
